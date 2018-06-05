@@ -258,17 +258,28 @@ maximal number of repetitions is 1)."))
               (declare (fixnum start-pos))
               (setf (aref *repeat-counters* rep-num) 0)
               (greedy-aux start-pos)))))
+      ((typep (regex repetition) '(or register standalone))
+       ;; easier code because we're not bounded by MAXIMUM, but
+       ;; basically the same
+       (flet ((greedy-aux (start-pos)
+                (declare (fixnum start-pos)
+                         (function repeat-matcher))
+                (or (funcall repeat-matcher start-pos)
+                    (funcall next-fn start-pos))))
+         (setq repeat-matcher
+               (create-matcher-aux (regex repetition) #'greedy-aux))
+         #'greedy-aux))
       (t
-        ;; easier code because we're not bounded by MAXIMUM, but
-        ;; basically the same
-        (flet ((greedy-aux (start-pos)
-                 (declare (fixnum start-pos)
-                          (function repeat-matcher))
-                 (or (funcall repeat-matcher start-pos)
-                     (funcall next-fn start-pos))))
-          (setq repeat-matcher
-                  (create-matcher-aux (regex repetition) #'greedy-aux))
-          #'greedy-aux)))))
+       (let ((inner (create-matcher-aux (regex repetition) #'identity)))
+         (declare (type function inner))
+         #'(lambda (start-pos)
+             (declare (type fixnum start-pos))
+             (loop
+               (let ((next-pos (funcall inner start-pos)))
+                 (declare (type (or null fixnum) next-pos))
+                 (if next-pos
+                     (setq start-pos next-pos)
+                     (return (funcall next-fn start-pos)))))))))))
 
 (defgeneric create-greedy-matcher (repetition next-fn)
   (declare #.*standard-optimize-settings*)
