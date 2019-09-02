@@ -366,6 +366,9 @@ substrings may share structure with TARGET-STRING."
                        ,@body))
                    body)))))))
 
+(deftype array-index ()
+  `(integer 0 (,(1- array-dimension-limit))))
+
 (defmacro do-scans ((match-start match-end reg-starts reg-ends regex
                                  target-string
                                  &optional result-form
@@ -397,6 +400,7 @@ declarations."
                       (,scanner (typecase ,%regex
                                   (function ,%regex)
                                   (t (create-scanner ,%regex)))))))
+           (declare (type fixnum ,%start ,%end))
            ;; coerce TARGET-STRING to a simple string unless it is one
            ;; already (otherwise SCAN will do this on each iteration)
            (setq ,target-string
@@ -413,7 +417,9 @@ declarations."
               ;; declare the variables to be IGNORABLE to prevent the
               ;; compiler from issuing warnings
               (declare
-               (ignorable ,match-start ,match-end ,reg-starts ,reg-ends))
+               (ignorable ,match-start ,match-end ,reg-starts ,reg-ends)
+               (type (or null simple-vector) ,reg-starts ,reg-ends)
+               (type (or null array-index) ,match-start ,match-end))
               (unless ,match-start
                 ;; stop iteration on first failure
                 (return ,result-form))
